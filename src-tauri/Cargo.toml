@@ -1,0 +1,54 @@
+[package]
+name = "meet-transcriber"
+version = "0.1.0"
+description = "Piattaforma per registrazione e trascrizione di riunioni"
+authors = ["Daniel Dalla Benetta"]
+license = "MIT"
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "meet_transcriber_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-log = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Audio
+cpal = "0.15"
+hound = "3.5"
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client (per LLM API)
+reqwest = { version = "0.12", features = ["json"] }
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+thiserror = "1.0"
+dirs = "5.0"
+async-trait = "0.1"
+once_cell = "1.19"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

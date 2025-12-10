@@ -1,0 +1,6 @@
+faster-whisper==1.0.3
+av==12.3.0
+ctranslate2>=4.0,<5
+huggingface-hub>=0.21
+tokenizers>=0.13,<1
+# onnxruntime non è disponibile per Python 3.14, useremo solo CTranslate2
