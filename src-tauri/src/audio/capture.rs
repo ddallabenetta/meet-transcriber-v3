@@ -47,20 +47,36 @@ impl AudioRecorder {
 
         let host = cpal::default_host();
 
-        let device = if let Some(id) = device_id {
-            let idx: usize = id.replace("input_", "").parse().unwrap_or(0);
-            host.input_devices()
-                .map_err(|e| AudioError::DeviceError(e.to_string()))?
-                .nth(idx)
-                .ok_or(AudioError::NoInputDevice)?
+        let (device, is_loopback) = if let Some(id) = device_id {
+            if id.starts_with("loopback_") {
+                let idx: usize = id.replace("loopback_", "").parse().unwrap_or(0);
+                let device = host.output_devices()
+                    .map_err(|e| AudioError::DeviceError(e.to_string()))?
+                    .nth(idx)
+                    .ok_or(AudioError::NoInputDevice)?;
+                (device, true)
+            } else {
+                let idx: usize = id.replace("input_", "").parse().unwrap_or(0);
+                let device = host.input_devices()
+                    .map_err(|e| AudioError::DeviceError(e.to_string()))?
+                    .nth(idx)
+                    .ok_or(AudioError::NoInputDevice)?;
+                (device, false)
+            }
         } else {
-            host.default_input_device()
-                .ok_or(AudioError::NoInputDevice)?
+            (host.default_input_device()
+                .ok_or(AudioError::NoInputDevice)?, false)
         };
 
-        let config = device
-            .default_input_config()
-            .map_err(|e| AudioError::DeviceError(e.to_string()))?;
+        let config = if is_loopback {
+             device
+                .default_output_config()
+                .map_err(|e| AudioError::DeviceError(e.to_string()))?
+        } else {
+            device
+                .default_input_config()
+                .map_err(|e| AudioError::DeviceError(e.to_string()))?
+        };
 
         let sample_format = config.sample_format();
         let config: cpal::StreamConfig = config.into();
@@ -90,6 +106,7 @@ impl AudioRecorder {
         thread::spawn(move || {
             let err_fn = |err| eprintln!("Errore stream audio: {}", err);
 
+            // Note: For WASAPI loopback, building an input stream on an output device works.
             let stream = match sample_format {
                 SampleFormat::I16 => device.build_input_stream(
                     &config,

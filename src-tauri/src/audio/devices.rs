@@ -7,6 +7,7 @@ pub struct AudioDevice {
     pub name: String,
     pub is_input: bool,
     pub is_default: bool,
+    pub is_loopback: bool,
 }
 
 pub fn list_audio_devices() -> Vec<AudioDevice> {
@@ -26,15 +27,35 @@ pub fn list_audio_devices() -> Vec<AudioDevice> {
                     name: name.clone(),
                     is_input: true,
                     is_default,
+                    is_loopback: false,
                 });
             }
         }
     }
 
+    // List output devices as loopback sources (only on Windows/WASAPI)
     // Note: System audio capture requires platform-specific handling
-    // macOS: ScreenCaptureKit or virtual audio device (BlackHole)
-    // Windows: WASAPI loopback
-    // Linux: PulseAudio monitor
+    // Windows: WASAPI loopback - achieved by using output device as input source
+    #[cfg(target_os = "windows")]
+    if host.id() == cpal::HostId::Wasapi {
+         if let Ok(output_devices) = host.output_devices() {
+            for (idx, device) in output_devices.enumerate() {
+                if let Ok(name) = device.name() {
+                    // We treat loopback devices as inputs so they appear in selection
+                    devices.push(AudioDevice {
+                        id: format!("loopback_{}", idx),
+                        name: format!("{} (Loopback)", name),
+                        is_input: true,
+                        is_default: false,
+                        is_loopback: true,
+                    });
+                }
+            }
+        }
+    }
+
+    // Linux: PulseAudio monitor sources usually appear in input_devices() automatically.
+    // macOS: ScreenCaptureKit or BlackHole. BlackHole appears in input_devices().
 
     devices
 }
