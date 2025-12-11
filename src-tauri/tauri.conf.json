@@ -42,11 +42,12 @@
     ],
     "resources": [],
     "macOS": {
-      "entitlements": null,
+      "entitlements": "./entitlements.plist",
       "exceptionDomain": "",
       "frameworks": [],
       "providerShortName": null,
-      "signingIdentity": null
+      "signingIdentity": null,
+      "minimumSystemVersion": "10.15"
     }
   },
   "plugins": {

@@ -1,20 +1,19 @@
 """
-Modulo per la trascrizione audio usando faster-whisper.
+Modulo per la trascrizione audio usando openai-whisper.
 """
 
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
-
-from faster_whisper import WhisperModel
+import whisper
 
 logger = logging.getLogger(__name__)
 
 # Cache dei modelli caricati
-_models_cache: Dict[str, WhisperModel] = {}
+_models_cache: Dict[str, whisper.Whisper] = {}
 
 
-def get_model(model_size: str = "base", device: str = "cpu") -> WhisperModel:
+def get_model(model_size: str = "base", device: str = "cpu") -> whisper.Whisper:
     """
     Ottiene un modello Whisper, caricandolo se necessario.
     I modelli vengono cachati per evitare ricaricamenti.
@@ -24,23 +23,13 @@ def get_model(model_size: str = "base", device: str = "cpu") -> WhisperModel:
         device: Device da usare (cpu, cuda)
 
     Returns:
-        Istanza del modello WhisperModel
+        Istanza del modello Whisper
     """
     cache_key = f"{model_size}_{device}"
 
     if cache_key not in _models_cache:
         logger.info(f"Loading Whisper model: {model_size} on {device}")
-
-        # Per CPU, usa int8 per performance migliori
-        compute_type = "int8" if device == "cpu" else "float16"
-
-        model = WhisperModel(
-            model_size,
-            device=device,
-            compute_type=compute_type,
-            download_root=None,  # Usa la directory di cache predefinita
-        )
-
+        model = whisper.load_model(model_size, device=device)
         _models_cache[cache_key] = model
         logger.info(f"Model {model_size} loaded successfully")
 
@@ -76,37 +65,27 @@ def transcribe_audio(
     # Ottieni il modello
     model = get_model(model_size, device)
 
-    # Parametri di trascrizione
-    transcribe_params = {
-        "beam_size": 5,
-        "vad_filter": True,  # Voice Activity Detection per rimuovere silenzi
-        "vad_parameters": {
-            "threshold": 0.5,
-            "min_speech_duration_ms": 250,
-        },
-    }
-
-    if language:
-        transcribe_params["language"] = language
-
     logger.info(f"Starting transcription of {audio_path}")
 
     # Esegui la trascrizione
-    segments_iter, info = model.transcribe(str(audio_file), **transcribe_params)
+    transcribe_params = {}
+    if language:
+        transcribe_params["language"] = language
 
-    # Converti i segmenti in lista
+    result_raw = model.transcribe(str(audio_file), **transcribe_params)
+
+    # Converti i segmenti
     segments = []
-    full_text = []
-
-    for segment in segments_iter:
-        segments.append(
-            {"start": segment.start, "end": segment.end, "text": segment.text.strip()}
-        )
-        full_text.append(segment.text.strip())
+    for segment in result_raw.get("segments", []):
+        segments.append({
+            "start": segment["start"],
+            "end": segment["end"],
+            "text": segment["text"].strip()
+        })
 
     result = {
-        "text": " ".join(full_text),
-        "language": info.language if not language else language,
+        "text": result_raw["text"].strip(),
+        "language": result_raw.get("language", language),
         "segments": segments,
     }
 

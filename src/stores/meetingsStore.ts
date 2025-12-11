@@ -32,6 +32,7 @@ interface MeetingsState {
     title?: string,
     durationSeconds?: number,
     status?: string,
+    audioPath?: string,
   ) => Promise<void>;
   remove: (id: string) => Promise<void>;
   transcribe: (
@@ -94,9 +95,10 @@ export const useMeetingsStore = create<MeetingsState>((set, get) => ({
     title?: string,
     durationSeconds?: number,
     status?: string,
+    audioPath?: string,
   ) => {
     try {
-      await updateMeeting(id, title, durationSeconds, status);
+      await updateMeeting(id, title, durationSeconds, status, audioPath);
       // Reload meetings to get updated data
       await get().loadMeetings();
     } catch (e) {

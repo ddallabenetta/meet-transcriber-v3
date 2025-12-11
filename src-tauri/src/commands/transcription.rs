@@ -8,25 +8,22 @@ use tauri::{State, Window};
 
 #[tauri::command]
 pub async fn transcribe_meeting(
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
     audio_path: String,
     model_size: Option<String>,
     language: Option<String>,
 ) -> Result<TranscriptionResult, String> {
-    let sidecar_path = state.app_data_dir.join("transcriber");
-
-    // Check if sidecar exists, otherwise use Python directly for development
-    let sidecar = if sidecar_path.exists() {
-        sidecar_path
-    } else {
-        // Fallback to python script for development
-        PathBuf::from("python")
-    };
+    // Use Python script from project directory
+    let python_script = std::env::current_dir()
+        .map_err(|e| e.to_string())?
+        .join("python")
+        .join("src")
+        .join("main.py");
 
     let audio = PathBuf::from(&audio_path);
     let model = model_size.unwrap_or_else(|| "base".to_string());
 
-    transcribe_audio(&sidecar, &audio, &model, language)
+    transcribe_audio(&python_script, &audio, &model, language)
         .await
         .map_err(|e| e.to_string())
 }

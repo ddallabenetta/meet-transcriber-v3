@@ -3,12 +3,12 @@ Modulo per la trascrizione in streaming mentre avviene la registrazione.
 """
 
 import logging
+import threading
 import time
 import wave
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
-
-from faster_whisper import WhisperModel
+import whisper
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +28,14 @@ class StreamingTranscriber:
         self.model_size = model_size
         self.device = device
         self.language = language
-        self.model: Optional[WhisperModel] = None
+        self.model: Optional[whisper.Whisper] = None
         self.last_transcribed_position = 0
 
     def load_model(self):
         """Carica il modello Whisper"""
         if self.model is None:
             logger.info(f"Loading Whisper model: {self.model_size}")
-            compute_type = "int8" if self.device == "cpu" else "float16"
-            self.model = WhisperModel(
-                self.model_size, device=self.device, compute_type=compute_type
-            )
+            self.model = whisper.load_model(self.model_size, device=self.device)
             logger.info("Model loaded successfully")
 
     def get_audio_duration(self, audio_path: Path) -> float:
@@ -63,33 +60,21 @@ class StreamingTranscriber:
 
         try:
             # Parametri di trascrizione
-            transcribe_params = {
-                "beam_size": 5,
-                "vad_filter": True,
-                "vad_parameters": {
-                    "threshold": 0.5,
-                    "min_speech_duration_ms": 250,
-                },
-            }
-
+            transcribe_params = {}
             if self.language:
                 transcribe_params["language"] = self.language
 
-            # Trascrive solo la parte nuova del file
-            segments_iter, _ = self.model.transcribe(
-                str(audio_path), **transcribe_params
-            )
+            # Trascrive il file completo
+            result = self.model.transcribe(str(audio_path), **transcribe_params)
 
-            for segment in segments_iter:
-                # Filtra solo i segmenti dopo start_time
-                if segment.start >= start_time:
-                    segments_list.append(
-                        {
-                            "start": segment.start,
-                            "end": segment.end,
-                            "text": segment.text.strip(),
-                        }
-                    )
+            # Filtra solo i segmenti dopo start_time
+            for segment in result.get("segments", []):
+                if segment["start"] >= start_time:
+                    segments_list.append({
+                        "start": segment["start"],
+                        "end": segment["end"],
+                        "text": segment["text"].strip(),
+                    })
 
         except Exception as e:
             logger.error(f"Error transcribing chunk: {e}")

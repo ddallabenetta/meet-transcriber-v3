@@ -98,8 +98,9 @@ export async function updateMeeting(
   title?: string,
   durationSeconds?: number,
   status?: string,
+  audioPath?: string,
 ): Promise<void> {
-  return invoke("update_meeting", { id, title, durationSeconds, status });
+  return invoke("update_meeting", { id, title, durationSeconds, status, audioPath });
 }
 
 export async function getMeetings(): Promise<Meeting[]> {

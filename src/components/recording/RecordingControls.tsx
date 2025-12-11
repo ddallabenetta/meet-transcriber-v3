@@ -18,6 +18,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   startStreamingTranscription,
   stopStreamingTranscription,
+  saveTranscription,
 } from "@/lib/tauri-commands";
 
 interface TranscriptionSegment {
@@ -116,9 +117,14 @@ export function RecordingControls() {
       const latestMeeting = meetings[0];
 
       if (latestMeeting) {
-        await update(latestMeeting.id, undefined, elapsedSeconds, "recorded");
+        await update(latestMeeting.id, undefined, elapsedSeconds, "recorded", audioPath);
 
-        // Note: Live transcript is saved incrementally during recording
+        // Save live transcript if available
+        if (liveTranscript.length > 0) {
+          const fullText = liveTranscript.map((s) => s.text).join(" ");
+          await saveTranscription(latestMeeting.id, fullText, "it");
+          console.log("Trascrizione live salvata:", liveTranscript.length, "segmenti");
+        }
       }
 
       reset();

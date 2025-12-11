@@ -66,6 +66,7 @@ pub fn update_meeting(
     title: Option<String>,
     duration_seconds: Option<i64>,
     status: Option<String>,
+    audio_path: Option<String>,
 ) -> Result<(), String> {
     let conn = state.db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -89,6 +90,14 @@ pub fn update_meeting(
         conn.execute(
             "UPDATE meetings SET status = ?1 WHERE id = ?2",
             params![s, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    if let Some(ap) = audio_path {
+        conn.execute(
+            "UPDATE meetings SET audio_path = ?1 WHERE id = ?2",
+            params![ap, id],
         )
         .map_err(|e| e.to_string())?;
     }

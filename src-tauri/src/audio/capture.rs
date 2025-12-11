@@ -88,67 +88,92 @@ impl AudioRecorder {
         let writer_finalize = writer.clone();
 
         thread::spawn(move || {
-            let err_fn = |err| eprintln!("Errore stream audio: {}", err);
+            let err_fn = |err| {
+                eprintln!("Errore stream audio: {}", err);
+                println!("Errore stream audio: {}", err); // Print to stdout too
+            };
+
+            println!("Inizializzazione stream audio...");
+            println!("Formato sample: {:?}", sample_format);
 
             let stream = match sample_format {
-                SampleFormat::I16 => device.build_input_stream(
-                    &config,
-                    move |data: &[i16], _: &_| {
-                        if is_recording_i16.load(Ordering::SeqCst) {
-                            if let Ok(mut guard) = writer_i16.lock() {
-                                if let Some(ref mut writer) = *guard {
-                                    for &sample in data {
-                                        let _ = writer.write_sample(sample);
+                SampleFormat::I16 => {
+                    println!("Usando formato I16");
+                    device.build_input_stream(
+                        &config,
+                        move |data: &[i16], _: &_| {
+                            if is_recording_i16.load(Ordering::SeqCst) {
+                                if data.len() > 0 {
+                                    println!("Ricevuti {} samples, primo: {}", data.len(), data[0]);
+                                }
+                                if let Ok(mut guard) = writer_i16.lock() {
+                                    if let Some(ref mut writer) = *guard {
+                                        for &sample in data {
+                                            let _ = writer.write_sample(sample);
+                                        }
                                     }
                                 }
                             }
-                        }
-                    },
-                    err_fn,
-                    None,
-                ),
-                SampleFormat::F32 => device.build_input_stream(
-                    &config,
-                    move |data: &[f32], _: &_| {
-                        if is_recording_f32.load(Ordering::SeqCst) {
-                            if let Ok(mut guard) = writer_f32.lock() {
-                                if let Some(ref mut writer) = *guard {
-                                    for &sample in data {
-                                        let sample_i16: i16 = Sample::from_sample(sample);
-                                        let _ = writer.write_sample(sample_i16);
+                        },
+                        err_fn,
+                        None,
+                    )
+                }
+                SampleFormat::F32 => {
+                    println!("Usando formato F32");
+                    device.build_input_stream(
+                        &config,
+                        move |data: &[f32], _: &_| {
+                            if is_recording_f32.load(Ordering::SeqCst) {
+                                if data.len() > 0 {
+                                    println!("Ricevuti {} samples, primo: {}", data.len(), data[0]);
+                                }
+                                if let Ok(mut guard) = writer_f32.lock() {
+                                    if let Some(ref mut writer) = *guard {
+                                        for &sample in data {
+                                            let sample_i16: i16 = Sample::from_sample(sample);
+                                            let _ = writer.write_sample(sample_i16);
+                                        }
                                     }
                                 }
                             }
-                        }
-                    },
-                    err_fn,
-                    None,
-                ),
+                        },
+                        err_fn,
+                        None,
+                    )
+                }
                 _ => {
                     eprintln!("Formato sample non supportato: {:?}", sample_format);
+                    println!("Formato sample non supportato: {:?}", sample_format);
                     return;
                 }
             };
 
             match stream {
                 Ok(stream) => {
+                    println!("Stream creato, avvio in corso...");
                     if let Err(e) = stream.play() {
                         eprintln!("Errore avvio stream: {}", e);
+                        println!("Errore avvio stream: {}", e);
                         return;
                     }
+                    println!("Stream avviato con successo!");
 
                     while is_recording_loop.load(Ordering::SeqCst) {
                         thread::sleep(std::time::Duration::from_millis(100));
                     }
 
+                    println!("Chiusura stream...");
                     if let Ok(mut guard) = writer_finalize.lock() {
                         if let Some(writer) = guard.take() {
                             let _ = writer.finalize();
+                            println!("File audio finalizzato");
                         }
                     }
                 }
                 Err(e) => {
                     eprintln!("Errore creazione stream: {}", e);
+                    println!("Errore creazione stream: {}", e);
                 }
             }
         });

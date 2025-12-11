@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::{Child, Stdio};
+use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Window};
 use thiserror::Error;
@@ -235,9 +235,13 @@ pub async fn start_streaming_transcription(
 }
 
 pub async fn stop_streaming_transcription() -> Result<(), TranscriptionError> {
-    let mut process_guard = STREAMING_PROCESS.lock().unwrap();
+    // Prendi il child dal mutex e rilascia subito il lock
+    let child_opt = {
+        let mut process_guard = STREAMING_PROCESS.lock().unwrap();
+        process_guard.take()
+    };
 
-    if let Some(mut child) = process_guard.take() {
+    if let Some(mut child) = child_opt {
         // Invia comando stop al processo
         if let Some(mut stdin) = child.stdin.take() {
             let request = TranscriptionRequest {
