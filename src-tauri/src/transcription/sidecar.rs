@@ -235,9 +235,12 @@ pub async fn start_streaming_transcription(
 }
 
 pub async fn stop_streaming_transcription() -> Result<(), TranscriptionError> {
-    let mut process_guard = STREAMING_PROCESS.lock().unwrap();
+    let child_opt = {
+        let mut process_guard = STREAMING_PROCESS.lock().unwrap();
+        process_guard.take()
+    };
 
-    if let Some(mut child) = process_guard.take() {
+    if let Some(mut child) = child_opt {
         // Invia comando stop al processo
         if let Some(mut stdin) = child.stdin.take() {
             let request = TranscriptionRequest {
